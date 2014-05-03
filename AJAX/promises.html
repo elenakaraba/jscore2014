@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>AJAX Promises</title>
+	</head>
+	<body>
+
+		<h1>Techtalks - list of lectors</h1>
+		<ol id="list"></ol>
+
+
+		<script type="text/javascript">
+
+			function getData(url, method, newTechTackJSON) {
+				return new Promise(function(resolve, reject) {
+					var xhr = new XMLHttpRequest(); 
+					xhr.open(method, url, true); 
+					xhr.onload = function() {  
+				    	var status = xhr.status;
+				    	if (status >= 200 && status < 300 || status === 304) {
+				    		resolve(xhr.response);
+				    	} else {
+				    		reject(Error(xhr.statusText))
+				    	}
+				    };
+				    xhr.onerror = function() {
+				    	reject(Error("Error"));	
+				    };
+
+				    if ( method ==="POST" ) {
+						xhr.setRequestHeader('Content-Type', 'application/json');
+					}
+
+					if ( method === "POST" || method === "PUT" ) {
+						xhr.send(newTechTackJSON);
+					} else {
+						xhr.send(null);
+					}
+
+				});
+			}
+
+			
+			var createUpdateDeleteRecord  = function ()	{
+
+				var newTechTack = {
+				    date: "4\/21\/2014",
+				    title: "AJAX",
+				    lector: [
+				      "alena_karaba"
+				    ],
+				    location: "K1\/3",
+				    description: "some description",
+				    level: "D1-D5",
+				    notes: "",
+				    attendees: [
+				      "alena_karaba"
+				    ],
+				    tags: [
+				      "ajax",
+				      "xmlhttprequest",
+				      "promises"
+				    ]
+				};
+				var newTechTackJSON = JSON.stringify(newTechTack);
+
+				function readTechTalk(id) {
+					return getData("http://54.72.3.96:3000/techtalks/"+id, "GET").then(JSON.parse);
+				}
+				function updateTechTalk(id, newTechTackJSON) {
+					return getData("http://54.72.3.96:3000/techtalks/"+id, "PUT", newTechTackJSON).then(JSON.parse);
+				}
+				function deleteTechTalk(id) {
+					return getData("http://54.72.3.96:3000/techtalks/"+id, "DELETE");
+				}
+
+				getData("http://54.72.3.96:3000/techtalks", "POST", newTechTackJSON).then(function (response) {
+					var techTalkId = JSON.parse(response)._id;
+					readTechTalk(techTalkId);
+					return techTalkId;
+
+				}).then(function (techTalkId) {
+					newTechTack.notes = "UpdateNotes";
+					newTechTackJSON = JSON.stringify(newTechTack);
+				
+					updateTechTalk(techTalkId, newTechTackJSON);
+					console.log(newTechTack);
+					return techTalkId;
+
+				}).then(function (techTalkId) {
+					deleteTechTalk(techTalkId);
+					console.log("TechTalk was deleted");	
+
+				}).catch(function (error) {
+					console.log("Error", error);
+				});
+
+			}; 
+
+			
+
+			var getLectorsList = function () {
+
+				function getAttendees(name) {
+					return getData("http://54.72.3.96:3000/attendees/"+name, "GET").then(JSON.parse);
+				}
+
+				getData("http://54.72.3.96:3000/techtalks", "GET").then(function (talks) {
+					var techTalks = JSON.parse(talks);
+					return techTalks;
+				}).then(function (techTalks) {
+					
+					var lectors = [];
+
+					for (var i = 0; i < techTalks.length; i++) {
+						var lectorFullName = techTalks[i].lector;
+	               
+		                if ( lectorFullName ) {
+		                    for (var j = 0; j < lectorFullName.length; j++) {
+		                    	//if lector hasn't been added to array yet
+		                   		if (lectors.indexOf( lectorFullName[j] ) == -1) {
+		                            lectors.push( lectorFullName[j] );
+
+		                            getAttendees( lectorFullName[j] ).then(function(lector) {
+	                                    var list = document.getElementById('list')
+										var li = document.createElement("li");
+										li.innerHTML = "Full name: " + lector.full_name + '<br />' + "email: " + lector.email;
+										list.appendChild(li);
+	                                });
+		                       	}
+		                    }
+		                } else {
+		                	console.log("Error: techtalk with id " + techTalks[i]._id +  " - lector was not found!");
+		                }
+		                    
+		            }
+	            
+				}).catch(function (error) {
+					console.log("Error", error);
+				});
+
+			}; 
+
+			createUpdateDeleteRecord();
+			getLectorsList();
+
+		</script>
+	
+	</body>
+</html>
